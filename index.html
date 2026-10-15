@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Backtest</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="toolbar">
+        <h1>Backtest</h1>
+        <select id="pair" title="Par"></select>
+        <div id="timeframes" class="group"></div>
+        <div class="group replay">
+          <label>Inicio (hora NY) <input id="start" type="datetime-local" /></label>
+          <button id="replay-start">Iniciar replay</button>
+          <button id="step-back" title="Paso atrás" disabled>⏮</button>
+          <button id="play" title="Play / Pausa" disabled>▶</button>
+          <button id="step" title="Paso adelante" disabled>⏭</button>
+          <select id="speed" title="Velocidad (velas M1 por segundo)">
+            <option value="1">1×</option>
+            <option value="2">2×</option>
+            <option value="5">5×</option>
+            <option value="10" selected>10×</option>
+            <option value="30">30×</option>
+            <option value="60">60×</option>
+            <option value="120">120×</option>
+          </select>
+          <button id="replay-stop" disabled>Salir</button>
+        </div>
+        <span id="status"></span>
+      </header>
+      <div id="message" hidden></div>
+      <div id="chart"></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
