@@ -42,13 +42,35 @@ export function parseHistDataCsv(text: string): { candles: Candle[]; invalid: nu
   return { candles: unique, invalid };
 }
 
-/** `DAT_NT_EURUSD_M1_202601.csv` -> { pair: 'EURUSD', year: 2026, month: 1 } */
-export function parseHistDataFilename(name: string): { pair: string; year: number; month: number } | null {
-  const m = /^DAT_NT_([A-Za-z0-9]+)_M1_(\d{4})(\d{2})\.csv$/i.exec(name);
+/**
+ * `DAT_NT_EURUSD_M1_202601.csv` -> { pair: 'EURUSD', year: 2026, month: 1 } (mensual)
+ * `DAT_NT_EURUSD_M1_2025.csv`   -> { pair: 'EURUSD', year: 2025, month: null } (anual)
+ */
+export function parseHistDataFilename(name: string): { pair: string; year: number; month: number | null } | null {
+  const m = /^DAT_NT_([A-Za-z0-9]+)_M1_(\d{4})(\d{2})?\.csv$/i.exec(name);
   if (!m) return null;
-  const month = Number(m[3]);
-  if (month < 1 || month > 12) return null;
+  const month = m[3] === undefined ? null : Number(m[3]);
+  if (month !== null && (month < 1 || month > 12)) return null;
   return { pair: m[1].toUpperCase(), year: Number(m[2]), month };
+}
+
+/**
+ * Reparte velas (tiempo UTC) por mes HistData (EST fija) y fusiona por timestamp.
+ * `annual` se aplica primero y `monthly` prevalece en caso de duplicado. Cada lista de salida queda ordenada.
+ */
+export function mergeIntoMonths(annual: Candle[][], monthly: Candle[][]): Map<string, Candle[]> {
+  const byTime = new Map<string, Map<number, Candle>>();
+  for (const list of [...annual, ...monthly]) {
+    for (const c of list) {
+      const key = monthKeyOf(c[0]);
+      let m = byTime.get(key);
+      if (!m) byTime.set(key, (m = new Map()));
+      m.set(c[0], c);
+    }
+  }
+  const out = new Map<string, Candle[]>();
+  for (const key of [...byTime.keys()].sort()) out.set(key, [...byTime.get(key)!.values()].sort((a, b) => a[0] - b[0]));
+  return out;
 }
 
 /** JSON mensual compacto: filas [t, o, h, l, c] con t en hora EST fija como segundos "si fuese UTC". */

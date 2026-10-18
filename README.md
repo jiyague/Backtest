@@ -13,9 +13,13 @@ Plataforma web de backtesting con replay de velas, basada en [Lightweight Charts
 
 ## Cómo subir datos
 
-1. Descarga de HistData los CSV mensuales en formato NT, M1 (`DAT_NT_EURUSD_M1_202601.csv`).
-2. Súbelos con su nombre original a `data/raw/EURUSD/` (Add file → Upload files). El par y el mes se extraen del nombre. No subas el `.txt` de status report.
+1. Descarga de HistData los CSV en formato NT, M1: **mensuales** (`DAT_NT_EURUSD_M1_202601.csv`) o **anuales** (`DAT_NT_EURUSD_M1_2025.csv`).
+2. Súbelos con su nombre original a `data/raw/EURUSD/` (Add file → Upload files). El par y el periodo se extraen del nombre. No subas el `.txt` de status report (se ignora; solo se procesan `.csv`, y los nombres no reconocidos generan un aviso).
 3. Al hacer push a `main`, GitHub Actions ejecuta la conversión, commitea los JSON generados (si cambian) y despliega.
+
+Cómo se combinan: los CSV anuales se dividen en meses según la fecha de HistData (EST fija, sin convertir) y generan `data/json/<PAR>/2025-01.json` … `2025-12.json` (solo los meses con datos). Si hay un anual y un mensual del mismo mes, se fusionan por timestamp sin duplicados (**prevalece el mensual**). `index.json` lista todos los meses, y los H1/D precalculados se calculan con todos los datos combinados, por lo que las velas que cruzan meses o años no se parten.
+
+Nota de tamaño: el workflow commitea `data/json` al repo; un año de M1 son unos pocos MB de JSON por mes, muy por debajo del límite de 100 MB por fichero de GitHub. Si en el futuro se acercara a ese límite, habría que dejar de versionar `data/json` o dividir más los ficheros.
 
 Formato de cada línea: `YYYYMMDD HHMMSS;open;high;low;close;volume`.
 
