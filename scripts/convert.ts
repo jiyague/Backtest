@@ -1,5 +1,5 @@
 /**
- * Convierte los CSV mensuales de HistData (data/raw/<PAR>/*.csv) en JSON compactos:
+ * Convierte los CSV mensuales (…_YYYYMM.csv) y anuales (…_YYYY.csv) de HistData (data/raw/<PAR>/*.csv) en JSON compactos:
  *  - data/json/<PAR>/<YYYY>-<MM>.json  (M1, hora EST fija tal cual HistData)
  *  - data/json/<PAR>/index.json        (meses y años disponibles)
  *  - data/json/<PAR>/H1-<YYYY>.json y D-<YYYY>.json (precalculados, tiempo UTC)
@@ -12,6 +12,7 @@ import { aggregate } from '../src/timeframes/aggregate';
 import {
   MONTH_NOTE,
   parseHistDataCsv,
+  mergeIntoMonths,
   parseHistDataFilename,
   toMonthRow,
   type MonthFile,
@@ -52,12 +53,17 @@ function convertPair(dirName: string): PairIndex | null {
 
   const pairOut = join(OUT, pair);
   rmSync(pairOut, { recursive: true, force: true });
-  const months: string[] = [];
-  const all: Candle[] = [];
+  const annual: Candle[][] = [];
+  const monthly: Candle[][] = [];
   for (const { name, info } of files) {
     const { candles, invalid } = parseHistDataCsv(readFileSync(join(dir, name), 'utf8'));
     if (invalid) console.warn(`${pair}/${name}: ${invalid} líneas no válidas ignoradas`);
-    const month = `${info!.year}-${String(info!.month).padStart(2, '0')}`;
+    (info!.month === null ? annual : monthly).push(candles);
+  }
+  const byMonth = mergeIntoMonths(annual, monthly);
+  const months: string[] = [];
+  const all: Candle[] = [];
+  for (const [month, candles] of byMonth) {
     const file: MonthFile = {
       pair,
       month,
@@ -68,10 +74,9 @@ function convertPair(dirName: string): PairIndex | null {
     };
     writeJson(join(pairOut, `${month}.json`), file);
     months.push(month);
-    all.push(...candles);
+    for (const c of candles) all.push(c);
     console.log(`${pair} ${month}: ${candles.length} velas M1`);
   }
-  all.sort((a, b) => a[0] - b[0]);
 
   const years = new Set<number>();
   for (const tf of ['H1', 'D'] as const) {
