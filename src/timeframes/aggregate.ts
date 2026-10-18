@@ -53,6 +53,27 @@ export function bucketStart(tf: Timeframe, t: number): number {
   return nyLocalToUtc(startLocal);
 }
 
+/** Duración mínima (segundos) de una vela de cada timeframe, para localizar el siguiente periodo. */
+const MIN_SPAN: Record<Timeframe, number> = {
+  M1: 60, M3: 180, M5: 300, M15: 900, H1: 3600,
+  H4: 3 * 3600, D: 23 * 3600, W: 6 * 86400, M: 27 * 86400, '12M': 360 * 86400,
+};
+
+/** Inicio (UTC) del periodo siguiente a la vela de `tf` que empieza en `start`. */
+export function nextBucketStart(tf: Timeframe, start: number): number {
+  let t = start + MIN_SPAN[tf];
+  while (bucketStart(tf, t) <= start) t += 3600;
+  return bucketStart(tf, t);
+}
+
+/**
+ * Instante de cierre de la vela de `tf` que empieza en `start`, expresado como el tiempo
+ * de su última vela M1 (para M1 es su propio minuto; para H4/D... el último minuto del periodo).
+ */
+export function barCloseTime(tf: Timeframe, start: number): number {
+  return nextBucketStart(tf, start) - 60;
+}
+
 /** Incorpora la vela `c` (de menor timeframe) a la vela en formación `last`. */
 export function mergeCandle(last: Candle, c: Candle): Candle {
   return [last[0], last[1], Math.max(last[2], c[2]), Math.min(last[3], c[3]), c[4]];

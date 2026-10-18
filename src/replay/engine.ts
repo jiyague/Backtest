@@ -63,6 +63,15 @@ export class ReplayEngine {
     return this.candles[i];
   }
 
+  /** Revela hasta `n` velas de golpe (sin pasar de los datos cargados) y las devuelve. */
+  stepForwardMany(n: number): Candle[] {
+    const i = this.count;
+    const end = Math.min(this.candles.length, i + Math.max(0, Math.floor(n)));
+    if (end <= i) return [];
+    this.cursor = this.candles[end - 1][0];
+    return this.candles.slice(i, end);
+  }
+
   stepBack(): Candle | null {
     const i = this.count;
     if (i <= 1) return null;

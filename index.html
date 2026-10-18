@@ -11,13 +11,15 @@
         <h1>Backtest</h1>
         <select id="pair" title="Par"></select>
         <div id="timeframes" class="group"></div>
+        <label class="group">Zona <select id="tz" title="Zona horaria de visualización"></select></label>
         <div class="group replay">
           <label>Inicio (hora NY) <input id="start" type="datetime-local" /></label>
           <button id="replay-start">Iniciar replay</button>
+          <button id="select-bar" title="Haz clic en una vela para iniciar el replay en su cierre (Esc cancela)">Seleccionar barra</button>
           <button id="step-back" title="Paso atrás" disabled>⏮</button>
           <button id="play" title="Play / Pausa" disabled>▶</button>
           <button id="step" title="Paso adelante" disabled>⏭</button>
-          <select id="speed" title="Velocidad (velas M1 por segundo)">
+          <select id="speed" title="Velocidad (minutos de mercado por segundo)">
             <option value="1">1×</option>
             <option value="2">2×</option>
             <option value="5">5×</option>
@@ -25,6 +27,10 @@
             <option value="30">30×</option>
             <option value="60">60×</option>
             <option value="120">120×</option>
+            <option value="300">300×</option>
+            <option value="600">600×</option>
+            <option value="1800">1800×</option>
+            <option value="3600">3600×</option>
           </select>
           <button id="replay-stop" disabled>Salir</button>
         </div>

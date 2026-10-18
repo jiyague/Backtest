@@ -1,3 +1,4 @@
+import { TIME_ZONES, getTimeZone } from '../timeframes/timezone';
 import { TIMEFRAMES, type Timeframe } from '../types';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -7,6 +8,8 @@ export interface ToolbarHandlers {
   onTimeframe(tf: Timeframe): void;
   onReplayStart(): void;
   onReplayStop(): void;
+  onSelectBar(): void;
+  onTimeZone(zone: string): void;
   onPlayPause(): void;
   onStep(): void;
   onStepBack(): void;
@@ -17,6 +20,8 @@ export class Toolbar {
   readonly pair = $<HTMLSelectElement>('pair');
   readonly start = $<HTMLInputElement>('start');
   readonly speed = $<HTMLSelectElement>('speed');
+  readonly tz = $<HTMLSelectElement>('tz');
+  private selectBar = $<HTMLButtonElement>('select-bar');
   private tfBox = $('timeframes');
   private status = $('status');
   private message = $('message');
@@ -37,6 +42,10 @@ export class Toolbar {
     this.pair.onchange = () => h.onPair(this.pair.value);
     this.replayStart.onclick = h.onReplayStart;
     this.replayStop.onclick = h.onReplayStop;
+    this.selectBar.onclick = h.onSelectBar;
+    this.tz.replaceChildren(...TIME_ZONES.map((z) => new Option(z.name === z.id ? z.id : `${z.name} (${z.id})`, z.id)));
+    this.tz.value = getTimeZone();
+    this.tz.onchange = () => h.onTimeZone(this.tz.value);
     this.play.onclick = h.onPlayPause;
     this.step.onclick = h.onStep;
     this.stepBack.onclick = h.onStepBack;
@@ -58,6 +67,10 @@ export class Toolbar {
     this.step.disabled = !active;
     this.stepBack.disabled = !active;
     this.play.textContent = playing ? '⏸' : '▶';
+  }
+
+  setSelecting(on: boolean): void {
+    this.selectBar.classList.toggle('active', on);
   }
 
   setStatus(text: string): void {
