@@ -37,7 +37,13 @@
         <span id="status"></span>
       </header>
       <div id="message" hidden></div>
-      <div id="chart"></div>
+      <div id="main">
+        <aside id="draw-tools" aria-label="Herramientas de dibujo"></aside>
+        <div id="chart-wrap">
+          <div id="chart"></div>
+          <div id="draw-props" hidden aria-label="Propiedades del dibujo"></div>
+        </div>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

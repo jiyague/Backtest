@@ -1,4 +1,5 @@
 import { ChartView } from './chart/chart';
+import { DrawingController } from './drawing/controller';
 import { DataRepository } from './data/repository';
 import { monthKeyOf } from './data/parse';
 import { ReplayEngine } from './replay/engine';
@@ -46,6 +47,13 @@ export class App {
   });
   private view = new ChartView(document.getElementById('chart')!);
   private engine = new ReplayEngine();
+  private drawings = new DrawingController({
+    chart: this.view.chart,
+    series: this.view.series,
+    container: document.getElementById('chart')!,
+    getCandles: () => this.display,
+    isBlocked: () => this.selecting,
+  });
 
   private pair = '';
   private index!: PairIndex;
@@ -100,6 +108,7 @@ export class App {
   private async loadPair(pair: string): Promise<void> {
     this.stopReplay(false);
     this.pair = pair;
+    this.drawings.setPair(pair);
     this.index = await this.repo.index(pair);
     if (!this.index.months.length) return this.noData();
     this.toolbar.showMessage(null);

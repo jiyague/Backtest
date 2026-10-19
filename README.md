@@ -2,7 +2,7 @@
 
 Plataforma web de backtesting con replay de velas, basada en [Lightweight Charts](https://github.com/tradingview/lightweight-charts) (TradingView, Apache 2.0), TypeScript y Vite. Interfaz en español, alojada en GitHub Pages (`/Backtest/`).
 
-**Fase 1:** gráfico de velas, datos M1 de HistData, timeframes (M1, M3, M5, M15, H1, H4, D, W, M, 12M), carga bajo demanda por mes y modo replay. Las herramientas de dibujo y la operativa simulada llegarán en fases posteriores.
+**Fase 1:** gráfico de velas, datos M1 de HistData, timeframes (M1, M3, M5, M15, H1, H4, D, W, M, 12M), carga bajo demanda por mes y modo replay. **Fase 2a:** herramientas de dibujo básicas (ver «Dibujo»). La operativa simulada llegará en fases posteriores.
 
 ## Horarios
 
@@ -19,6 +19,28 @@ Plataforma web de backtesting con replay de velas, basada en [Lightweight Charts
 - **Seleccionar barra** (estilo Bar Replay de TradingView): pulsa el botón, haz clic en una vela y el replay arranca en pausa **al cierre** de esa vela en el timeframe actual (M1: su minuto; H4/D…: último minuto del periodo). Las velas posteriores se ocultan (los datos siguen en memoria, puedes elegir otro punto). `Esc` cancela la selección; durante la misma se resalta la vela bajo el cursor con una línea vertical. En replay no se puede elegir un instante posterior al ya revelado.
 - El campo **Inicio (hora NY)** + «Iniciar replay» sigue disponible como alternativa.
 - **Velocidades** (minutos de mercado por segundo): 1×, 2×, 5×, 10×, 30×, 60×, 120×, 300×, 600×, 1800× y 3600×. El avance se agrupa por fotograma (`requestAnimationFrame`): varias velas M1 por tick con un único redibujado, y el mes siguiente se precarga con margen según la velocidad. Nunca se revelan datos futuros.
+
+## Dibujo
+
+Barra de herramientas a la izquierda del gráfico:
+
+- **↖ Selector:** selecciona y edita dibujos (clic sobre ellos).
+- **╱ Línea de tendencia:** clic y arrastra (o clic en el inicio y clic en el final).
+- **→ Rayo horizontal:** un clic; se extiende hacia la derecha desde ese punto.
+- **▭ Rectángulo:** clic y arrastra (o clic en una esquina y clic en la opuesta).
+- **🗑 Borrar** el elemento seleccionado.
+- **🧲 Imán débil:** activar/desactivar (activado por defecto).
+- **⤓ Exportar / ⤒ Importar** dibujos en JSON.
+
+Al seleccionar un dibujo se muestran sus anclas (arrástralas para editar la geometría) y un panel de propiedades: color, grosor, estilo (sólida, discontinua, punteada), relleno y opacidad (rectángulo) y texto opcional (contenido, color, tamaño y posición: arriba/abajo/izquierda/derecha, y centro en el rectángulo). Arrastrar el cuerpo mueve el dibujo entero.
+
+**Atajos:** `Supr` borra el dibujo seleccionado; `Esc` cancela la creación o edición en curso (y restaura la geometría anterior).
+
+**Imán débil:** al dibujar o editar, si el cursor está a menos de 10 px de un precio OHLC de la vela más cercana, se ajusta a ese precio (y a la apertura de la vela); si no, la posición queda libre. Mantén `Alt` al arrastrar un punto o un dibujo existente para ignorarlo.
+
+**Persistencia:** los dibujos se guardan automáticamente en `localStorage` por par (`backtest.drawings.v1.<PAR>`) y se restauran al cargar. **Exportar** descarga `dibujos-<PAR>.json`; **Importar** reemplaza los dibujos del par actual con el contenido del archivo (se valida el esquema; los dibujos inválidos se descartan y un archivo no válido no cambia nada).
+
+Las anclas se guardan como **(tiempo UTC, precio)**, por lo que se mantienen al hacer zoom, desplazarse, cambiar de timeframe (M1…12M), cargar más meses/años o avanzar el replay. Los dibujos se pintan con la API de primitivas de Lightweight Charts, dentro del propio ciclo de render del gráfico.
 
 ## Tema
 
@@ -47,6 +69,7 @@ src/data/              parseo y carga de datos (caché en memoria)
 src/timeframes/        zona NY, agregación y formato de fechas
 src/replay/            motor de replay (nunca expone velas futuras)
 src/chart/             envoltorio de Lightweight Charts
+src/drawing/           dibujo: modelos, imán, persistencia, controlador y renderer
 src/ui/                barra de herramientas y estilos
 tests/                 tests Vitest (fixture sintético en tests/fixtures/)
 ```
