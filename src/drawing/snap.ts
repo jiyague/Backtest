@@ -4,6 +4,13 @@ import type { Anchor } from './model';
 /** Distancia máxima (px) al precio OHLC para que el imán débil actúe. Fuera de ella la posición queda libre. */
 export const SNAP_THRESHOLD_PX = 10;
 
+/** Vela más cercana a una posición lógica (índice fraccionario); undefined si cae fuera de la serie (> media vela). */
+export function nearestCandle(candles: readonly Candle[], logical: number | null): Candle | undefined {
+  if (logical === null || !Number.isFinite(logical) || !candles.length) return undefined;
+  if (logical < -0.5 || logical >= candles.length - 0.5) return undefined;
+  return candles[Math.min(candles.length - 1, Math.max(0, Math.round(logical)))];
+}
+
 export interface SnapResult {
   anchor: Anchor;
   snapped: boolean;

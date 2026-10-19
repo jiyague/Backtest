@@ -3,7 +3,7 @@ import type { Candle } from '../types';
 import { hitBody, hitHandle, type Pt } from './geometry';
 import { createDrawing, handlePoints, type Anchor, type Drawing, type DrawingKind } from './model';
 import { DrawingPrimitive } from './renderer';
-import { weakSnap } from './snap';
+import { nearestCandle, weakSnap } from './snap';
 import { DrawingStore } from './store';
 import { DrawingUI, type Tool } from './ui';
 
@@ -90,7 +90,7 @@ export class DrawingController {
     if (!free) return null;
     if (!snap || !this.magnet) return free;
     const l = this.d.chart.timeScale().coordinateToLogical(p.x);
-    const candle = l === null ? undefined : this.d.getCandles()[Math.round(l)];
+    const candle = nearestCandle(this.d.getCandles(), l);
     return weakSnap(free, candle, (price) => this.d.series.priceToCoordinate(price)).anchor;
   }
 
