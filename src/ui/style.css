@@ -22,4 +22,15 @@ button:disabled { opacity: 0.4; cursor: default; }
 button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 #status { margin-left: auto; color: var(--muted); }
 #message { padding: 24px; text-align: center; font-size: 15px; color: var(--warn); }
-#chart { flex: 1; min-height: 0; }
+#main { flex: 1; min-height: 0; display: flex; }
+#chart-wrap { flex: 1; min-width: 0; position: relative; }
+#chart { position: absolute; inset: 0; }
+#draw-tools { display: flex; flex-direction: column; gap: 4px; padding: 6px; background: var(--panel); border-right: 1px solid var(--border); }
+#draw-tools button { width: 34px; height: 34px; padding: 0; font-size: 16px; }
+#draw-props { position: absolute; top: 8px; left: 8px; z-index: 5; display: flex; flex-direction: column; gap: 6px; padding: 8px; width: 190px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); }
+#draw-props[hidden] { display: none; }
+#draw-props label { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); }
+#draw-props label[hidden] { display: none; }
+#draw-props input[type='text'], #draw-props input[type='number'], #draw-props select { width: 100px; }
+#draw-props input[type='color'] { width: 40px; height: 24px; padding: 0; }
+#draw-props input[type='range'] { width: 100px; padding: 0; }
