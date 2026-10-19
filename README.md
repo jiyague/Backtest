@@ -7,9 +7,21 @@ Plataforma web de backtesting con replay de velas, basada en [Lightweight Charts
 ## Horarios
 
 - **La hora de HistData es EST fija (UTC-5), sin cambio horario.** Los JSON mensuales la conservan tal cual (`tz: "EST-fixed(UTC-5)"`).
-- La web la convierte internamente a UTC (hora + 5 h) y **muestra siempre America/New_York** (EST/EDT automático) en el eje, el crosshair y los tooltips.
+- La web la convierte internamente a UTC (hora + 5 h) y **muestra por defecto America/New_York** (EST/EDT automático) en el eje, el crosshair y los tooltips. El selector **Zona** de la barra superior permite cambiar a UTC, Madrid o Londres; la zona activa y su desfase vigente (p. ej. `Hora: NY (EDT, UTC-4)`) se indican arriba a la derecha, según la vela bajo el cursor.
 - Las velas se agrupan con el **cierre de NY a las 17:00** (zona real, respetando EST/EDT): D de 17:00 a 17:00; H4 ancladas a 17, 21, 01, 05, 09 y 13; W abre el domingo a las 17:00; M abre con la primera sesión del mes; 12M por año.
+- **Auditoría del posible desfase de 4 h:** no hay error. Lightweight Charts recibe `time` en UTC real y los formateadores (`tickMarkFormatter`, `timeFormatter`) usan `Intl` con la zona activa, sin desplazamientos adicionales. Una H4 que abre a las 13:00 NY en verano (EDT) es 17:00 UTC; en invierno (EST) es 18:00 UTC. Hay tests con casos de verano, invierno y los dos cambios horarios (`tests/timezone.test.ts`).
+- **Cómo comparar con TradingView (OANDA:EURUSD):** pon la misma zona en ambos. TradingView en UTC-4 equivale a NY en verano (EDT), pero en invierno NY es UTC-5; en ese caso compara con la zona `UTC` o con "Nueva York" en TradingView. Si TradingView está en UTC, elige `UTC` en la web: la vela de las 13:00 NY (EDT) aparecerá a las 17:00.
 - Los huecos (minutos sin ticks) son normales y **no se rellenan** con velas inventadas.
+
+## Replay
+
+- **Seleccionar barra** (estilo Bar Replay de TradingView): pulsa el botón, haz clic en una vela y el replay arranca en pausa **al cierre** de esa vela en el timeframe actual (M1: su minuto; H4/D…: último minuto del periodo). Las velas posteriores se ocultan (los datos siguen en memoria, puedes elegir otro punto). `Esc` cancela la selección; durante la misma se resalta la vela bajo el cursor con una línea vertical. En replay no se puede elegir un instante posterior al ya revelado.
+- El campo **Inicio (hora NY)** + «Iniciar replay» sigue disponible como alternativa.
+- **Velocidades** (minutos de mercado por segundo): 1×, 2×, 5×, 10×, 30×, 60×, 120×, 300×, 600×, 1800× y 3600×. El avance se agrupa por fotograma (`requestAnimationFrame`): varias velas M1 por tick con un único redibujado, y el mes siguiente se precarga con margen según la velocidad. Nunca se revelan datos futuros.
+
+## Tema
+
+Interfaz y gráfico en tema claro (lienzo blanco, texto negro, cuadrícula gris clara). Velas verdes (`#089981`) y rojas (`#F23645`). Los colores están en variables CSS (`src/ui/style.css`) y en `THEME` (`src/chart/chart.ts`).
 
 ## Cómo subir datos
 

@@ -2,9 +2,10 @@ import { ChartView } from './chart/chart';
 import { DataRepository } from './data/repository';
 import { monthKeyOf } from './data/parse';
 import { ReplayEngine } from './replay/engine';
-import { aggregate, applyM1 } from './timeframes/aggregate';
-import { formatNYFull, toNYInputValue } from './timeframes/format';
+import { aggregate, applyM1, barCloseTime } from './timeframes/aggregate';
+import { formatFull, toNYInputValue } from './timeframes/format';
 import { nyLocalToUtc } from './timeframes/ny';
+import { setTimeZone, zoneLabel } from './timeframes/timezone';
 import { Toolbar } from './ui/toolbar';
 import type { Candle, PairIndex, Timeframe } from './types';
 
@@ -15,8 +16,10 @@ interface Window { lo: number; hi: number }
 const LOW_TFS: Timeframe[] = ['M1', 'M3', 'M5', 'M15'];
 const EDGE_BARS = 25; // distancia al borde a partir de la cual se carga más historia
 const VIEW_BARS = 150;
-const TICK_MS = 50;
-const PRELOAD_M1 = 3000; // velas M1 restantes que disparan la carga del mes siguiente en el replay
+const MAX_FRAME_MS = 250; // tope de tiempo por fotograma para no saltar de golpe tras una pausa de la pestaña
+const PRELOAD_M1 = 3000; // velas M1 restantes (mínimo) que disparan la carga del mes siguiente en el replay
+const PRELOAD_SECONDS = 10; // a velocidades altas se precarga con este margen de segundos de replay
+const MAX_TOUCHED = 500; // por encima, se redibuja la serie entera en vez de actualizar vela a vela
 
 const NO_DATA =
   'Aún no hay datos. Sube los CSV mensuales de HistData a data/raw/EURUSD/ (p. ej. DAT_NT_EURUSD_M1_202601.csv) y espera a que termine el despliegue.';
@@ -35,7 +38,9 @@ export class App {
     onTimeframe: (tf) => void this.setTimeframe(tf),
     onReplayStart: () => void this.startReplay(),
     onReplayStop: () => void this.stopReplay(),
-    onPlayPause: () => (this.timer ? this.pause() : this.play()),
+    onSelectBar: () => this.setSelecting(!this.selecting),
+    onTimeZone: (z) => this.setZone(z),
+    onPlayPause: () => (this.raf !== undefined ? this.pause() : this.play()),
     onStep: () => { this.pause(); this.forward(); },
     onStepBack: () => void this.back(),
   });
@@ -52,15 +57,29 @@ export class App {
   private loading = false;
   private loadingNext = false;
   private gen = 0;
-  private timer: ReturnType<typeof setInterval> | undefined;
+  private raf: number | undefined;
+  private lastFrame = 0;
   private acc = 0;
+  private selecting = false;
+  private hover: number | null = null;
 
   async init(): Promise<void> {
     this.toolbar.setTimeframe(this.tf);
     this.toolbar.setReplayActive(false);
     this.view.onLogicalRangeChange((r) => this.onRange(r));
     this.view.onClick((t) => {
+      if (this.selecting) {
+        if (t !== null) void this.selectBar(t);
+        return;
+      }
       if (this.mode === 'browse' && t !== null) this.toolbar.start.value = toNYInputValue(t);
+    });
+    this.view.onCrosshairMove((t) => {
+      this.hover = t;
+      this.updateStatus();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.selecting) this.setSelecting(false);
     });
     let pairs: string[] = [];
     try {
@@ -232,12 +251,38 @@ export class App {
     if (w.lo === this.rwin.lo && w.hi === this.rwin.hi) this.engine.setCandles(candles);
   }
 
+  private setZone(zone: string): void {
+    setTimeZone(zone);
+    this.view.refreshTimeLabels();
+    this.updateStatus();
+  }
+
+  private setSelecting(on: boolean): void {
+    this.selecting = on;
+    this.toolbar.setSelecting(on);
+    this.view.setSelecting(on);
+  }
+
+  /** Inicia el replay al cierre de la vela (del timeframe actual) que empieza en `barStart`. */
+  private async selectBar(barStart: number): Promise<void> {
+    this.setSelecting(false);
+    let close = barCloseTime(this.tf, barStart);
+    // En replay nunca se puede elegir un instante posterior al ya revelado.
+    if (this.mode === 'replay') close = Math.min(close, this.engine.time);
+    await this.startReplayAt(close);
+  }
+
   private async startReplay(): Promise<void> {
     const v = this.toolbar.start.value;
     const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(v);
     if (!m) return;
     const [y, mo, d, h, mi] = m.slice(1).map(Number);
-    const startUtc = nyLocalToUtc(Date.UTC(y, mo - 1, d, h, mi) / 1000);
+    await this.startReplayAt(nyLocalToUtc(Date.UTC(y, mo - 1, d, h, mi) / 1000));
+  }
+
+  /** Arranca el replay (en pausa) en el instante UTC dado; los datos posteriores quedan ocultos. */
+  private async startReplayAt(startUtc: number): Promise<void> {
+    this.pause();
     const g = ++this.gen;
     this.loading = true;
     this.mode = 'replay';
@@ -269,43 +314,59 @@ export class App {
   }
 
   private play(): void {
-    if (this.mode !== 'replay' || this.timer) return;
-    this.timer = setInterval(() => this.tick(), TICK_MS);
+    if (this.mode !== 'replay' || this.raf !== undefined) return;
+    this.lastFrame = performance.now();
+    this.raf = requestAnimationFrame((ts) => this.frame(ts));
     this.toolbar.setReplayActive(true, true);
   }
 
   private pause(): void {
-    if (this.timer) clearInterval(this.timer);
-    this.timer = undefined;
+    if (this.raf !== undefined) cancelAnimationFrame(this.raf);
+    this.raf = undefined;
     this.acc = 0;
     if (this.mode === 'replay') this.toolbar.setReplayActive(true, false);
   }
 
-  private tick(): void {
-    if (this.loading) return;
-    this.acc += (Number(this.toolbar.speed.value) * TICK_MS) / 1000;
-    while (this.acc >= 1 && this.timer) {
-      this.acc -= 1;
-      if (!this.forward()) break;
+  /** Bucle de reproducción: un fotograma agrupa todas las velas M1 que tocan según la velocidad. */
+  private frame(ts: number): void {
+    if (this.raf === undefined) return;
+    const dt = Math.min(ts - this.lastFrame, MAX_FRAME_MS);
+    this.lastFrame = ts;
+    if (!this.loading) {
+      this.acc += (Number(this.toolbar.speed.value) * dt) / 1000;
+      const n = Math.floor(this.acc);
+      this.acc -= n;
+      if (n > 0 && !this.forward(n)) this.acc = 0;
     }
+    if (this.raf !== undefined) this.raf = requestAnimationFrame((t) => this.frame(t));
   }
 
-  /** Revela la siguiente vela M1 y actualiza (o abre) la vela en formación. */
-  private forward(): boolean {
+  /** Revela las siguientes `n` velas M1 y actualiza (o abre) las velas en formación con un solo redibujado. */
+  private forward(n = 1): boolean {
     if (this.mode !== 'replay' || this.loading) return false;
-    const c = this.engine.stepForward();
-    if (!c) {
+    const revealed = this.engine.stepForwardMany(n);
+    if (!revealed.length) {
       if (!this.loadingNext) this.pause(); // fin de los datos disponibles
       return false;
     }
-    this.view.update(applyM1(this.display, c, this.tf).candle);
+    const touched: Candle[] = [];
+    for (const c of revealed) {
+      const { candle, isNew } = applyM1(this.display, c, this.tf);
+      if (isNew || !touched.length) touched.push(candle);
+      else touched[touched.length - 1] = candle;
+    }
+    if (touched.length > MAX_TOUCHED) this.view.setData(this.display);
+    else for (const c of touched) this.view.update(c);
     this.updateStatus();
-    if (this.engine.remaining() < PRELOAD_M1 && this.rwin.hi < this.index.months.length - 1 && !this.loadingNext) {
+    const speed = Number(this.toolbar.speed.value);
+    const threshold = Math.max(PRELOAD_M1, speed * PRELOAD_SECONDS);
+    if (this.engine.remaining() < threshold && this.rwin.hi < this.index.months.length - 1 && !this.loadingNext) {
       this.loadingNext = true;
       this.rwin.hi++;
       this.loadEngineCandles().finally(() => (this.loadingNext = false));
     }
-    return true;
+    if (revealed.length < n && !this.loadingNext) this.pause(); // datos agotados
+    return revealed.length === n;
   }
 
   private async back(): Promise<void> {
@@ -328,10 +389,8 @@ export class App {
   }
 
   private updateStatus(): void {
-    this.toolbar.setStatus(
-      this.mode === 'replay'
-        ? `Replay · ${formatNYFull(this.engine.time)} (hora de Nueva York)`
-        : 'Hora mostrada: America/New_York (EST/EDT)',
-    );
+    const t = this.hover ?? (this.mode === 'replay' ? this.engine.time : this.display[this.display.length - 1]?.[0]);
+    const zone = t === undefined ? '' : `Hora: ${zoneLabel(t)}`;
+    this.toolbar.setStatus(this.mode === 'replay' ? `Replay · ${formatFull(this.engine.time)} · ${zone}` : zone);
   }
 }

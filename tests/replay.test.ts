@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyM1, aggregate } from '../src/timeframes/aggregate';
+import { applyM1, aggregate, barCloseTime } from '../src/timeframes/aggregate';
 import { ReplayEngine } from '../src/replay/engine';
 import type { Candle, Timeframe } from '../src/types';
 
@@ -63,5 +63,28 @@ describe('ReplayEngine', () => {
     const h1 = aggregate(e.revealed(), 'H1');
     expect(m5[m5.length - 1][4]).toBe(candles[77][4]);
     expect(h1[h1.length - 1][4]).toBe(candles[77][4]);
+  });
+});
+
+describe('selección de barra y avance por lotes', () => {
+  const m1: Candle[] = Array.from({ length: 600 }, (_, i) => [i * 60, 1, 2, 0.5, 1.5] as Candle);
+
+  it('seek al cierre de una H1 no revela velas posteriores', () => {
+    const e = new ReplayEngine();
+    e.setCandles(m1);
+    e.seek(barCloseTime('H1', 3600));
+    expect(e.time).toBe(7140);
+    expect(e.revealed().every((c) => c[0] <= barCloseTime('H1', 3600))).toBe(true);
+    expect(e.revealed().length).toBe(120);
+  });
+
+  it('stepForwardMany avanza varias velas sin pasar del final', () => {
+    const e = new ReplayEngine();
+    e.setCandles(m1);
+    e.seek(0);
+    expect(e.stepForwardMany(5).length).toBe(5);
+    expect(e.time).toBe(5 * 60);
+    expect(e.stepForwardMany(10000).length).toBe(594);
+    expect(e.stepForwardMany(3)).toEqual([]);
   });
 });
