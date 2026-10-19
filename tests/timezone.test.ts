@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { barCloseTime, bucketStart, nextBucketStart } from '../src/timeframes/aggregate';
-import { formatFull, formatTime } from '../src/timeframes/format';
+import { formatCrosshair, formatFull, formatTime } from '../src/timeframes/format';
 import { histDataToUtc } from '../src/data/parse';
 import { DEFAULT_TIME_ZONE, formatOffset, getTimeZone, setTimeZone, zoneLabel } from '../src/timeframes/timezone';
 import { tzOffsetSeconds } from '../src/timeframes/ny';
@@ -85,5 +85,33 @@ describe('cierre de vela (selector de barra)', () => {
     expect(iso(barCloseTime('D', utc(2026, 10, 31, 21)))).toBe('2026-11-01T21:59Z');
     expect(iso(nextBucketStart('W', utc(2026, 1, 4, 22)))).toBe('2026-01-11T22:00Z');
     expect(iso(nextBucketStart('M', bucketStart('M', utc(2026, 1, 15))))).toBe(iso(bucketStart('M', utc(2026, 2, 15))));
+  });
+});
+
+describe('formatCrosshair: día de la semana en español e inicio de vela', () => {
+  it('formato y abreviaturas de días', () => {
+    expect(formatCrosshair(utc(2026, 9, 28, 5, 0))).toBe("lun 28 sep '26 01:00");
+    const days = [28, 29, 30, 1, 2, 3, 4].map((d, i) => formatCrosshair(utc(2026, i < 3 ? 9 : 10, d, 12)).slice(0, 3));
+    expect(days).toEqual(['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom']);
+  });
+
+  it('muestra el inicio de vela de cada timeframe', () => {
+    const t = utc(2026, 9, 30, 15, 37);
+    expect(formatCrosshair(bucketStart('H4', t))).toBe("mié 30 sep '26 09:00");
+    expect(formatCrosshair(bucketStart('D', t))).toBe("mar 29 sep '26 17:00");
+    expect(formatCrosshair(bucketStart('W', t)).slice(0, 3)).toBe('dom');
+    expect(formatCrosshair(bucketStart('M', t))).toBe("lun 31 ago '26 17:00");
+  });
+
+  it('respeta la zona activa', () => {
+    const t = utc(2026, 9, 28, 1, 0);
+    try {
+      setTimeZone('UTC');
+      expect(formatCrosshair(t)).toBe("lun 28 sep '26 01:00");
+      setTimeZone(DEFAULT_TIME_ZONE);
+      expect(formatCrosshair(t)).toBe("dom 27 sep '26 21:00");
+    } finally {
+      setTimeZone(DEFAULT_TIME_ZONE);
+    }
   });
 });

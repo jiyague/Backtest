@@ -12,7 +12,7 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts';
 import type { Candle } from '../types';
-import { formatDayMonth, formatFull, formatMonth, formatTime, formatYear } from '../timeframes/format';
+import { formatCrosshair, formatDayMonth, formatMonth, formatTime, formatYear } from '../timeframes/format';
 
 /** Tema claro (la estructura queda preparada para añadir otros). */
 const THEME = {
@@ -58,7 +58,7 @@ export class ChartView {
         horzLine: { color: THEME.crosshair, labelBackgroundColor: THEME.crosshairLabel },
       },
       rightPriceScale: { borderColor: THEME.border },
-      localization: { timeFormatter: (t: Time) => formatFull(t as number) },
+      localization: { timeFormatter: (t: Time) => formatCrosshair(t as number) },
       timeScale: {
         borderColor: THEME.border,
         timeVisible: true,
@@ -80,7 +80,7 @@ export class ChartView {
   /** Fuerza el redibujado de las etiquetas de tiempo (p. ej. tras cambiar de zona horaria). */
   refreshTimeLabels(): void {
     this.chart.applyOptions({
-      localization: { timeFormatter: (t: Time) => formatFull(t as number) },
+      localization: { timeFormatter: (t: Time) => formatCrosshair(t as number) },
       timeScale: { tickMarkFormatter },
     });
   }
