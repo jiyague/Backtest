@@ -3,7 +3,7 @@ import { aggregate } from '../src/timeframes/aggregate';
 import type { Candle } from '../src/types';
 import { hitBody, hitHandle } from '../src/drawing/geometry';
 import { createDrawing, deserialize, handlePoints, moveHandle, serialize } from '../src/drawing/model';
-import { weakSnap } from '../src/drawing/snap';
+import { nearestCandle, weakSnap } from '../src/drawing/snap';
 import { DrawingStore, storageKey } from '../src/drawing/store';
 import { logicalToTime, timeToLogical } from '../src/drawing/timemap';
 
@@ -62,6 +62,34 @@ describe('imán débil', () => {
   });
   it('sin vela no ajusta', () => {
     expect(weakSnap({ time: 1, price: 1 }, undefined, toY).snapped).toBe(false);
+  });
+});
+
+describe('imán: selección y umbral', () => {
+  const cs: Candle[] = [[0, 1, 2, 0.5, 1.5], [60, 1.5, 2.5, 1, 2], [120, 2, 3, 1.5, 2.5]];
+  it('elige la vela más cercana por coordenada temporal', () => {
+    expect(nearestCandle(cs, 0.4)?.[0]).toBe(0);
+    expect(nearestCandle(cs, 0.6)?.[0]).toBe(60);
+    expect(nearestCandle(cs, 1.9)?.[0]).toBe(120);
+  });
+  it('sin vela fuera de la serie', () => {
+    expect(nearestCandle(cs, -0.6)).toBeUndefined();
+    expect(nearestCandle(cs, 2.6)).toBeUndefined();
+    expect(nearestCandle(cs, null)).toBeUndefined();
+    expect(nearestCandle([], 0)).toBeUndefined();
+  });
+  it('elige el OHLC más cercano por precio', () => {
+    const toY = (p: number) => -p * 100;
+    expect(weakSnap({ time: 5, price: 0.52 }, cs[0], toY).anchor.price).toBe(0.5);
+    expect(weakSnap({ time: 5, price: 1.97 }, cs[0], toY).anchor.price).toBe(2);
+  });
+  it('el umbral en píxeles es invariante al zoom del eje de precio', () => {
+    for (const k of [10, 1000, 100000]) {
+      const toY = (p: number) => -p * k;
+      const near = 2 + 9 / k, far = 2 + 11 / k;
+      expect(weakSnap({ time: 5, price: near }, cs[0], toY).snapped).toBe(true);
+      expect(weakSnap({ time: 5, price: far }, cs[0], toY).snapped).toBe(false);
+    }
   });
 });
 
